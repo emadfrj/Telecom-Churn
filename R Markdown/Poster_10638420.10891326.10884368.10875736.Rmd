@@ -1,0 +1,583 @@
+---
+main_topsize: 0.15 #percent coverage of the poster
+main_bottomsize: 0.05
+#ESSENTIALS
+#title: 'Group 13'
+author:
+  - name: Akila Herath
+    affil: 1
+    main: true
+    email: 'akila.herath@postgrad.plymouth.ac.uk'
+  - name: Subina Maharjan
+    affil: 1
+    main: true
+    email: 'subina.maharjan@postgrad.plymouth.ac.uk'
+  - name: Ei Ei Maw
+    affil: 1
+    main: true
+    email: 'ei.maw@postgrad.plymouth.ac.uk'
+  - name: Emad Farjami
+    affil: 1
+    main: true
+    email: 'emad.farjami@postgrad.plymouth.ac.uk'
+affiliation:
+  - num: 1
+    address: School of Engineering, Computing and Mathematics (Faculty of Science and Engineering) | University of Plymouth, UK
+main_findings:
+  - "Predicting **Churn** with **Machine Learning** Algorithms<br><span style='font-size: 70px; font-weight: bold;'>Group 13</span>"
+main_fontfamily: 'Arial'
+accent_colour: '#0000FF'
+primary_colour: '#0000FF'
+secondary_colour: '#0000FF'
+logoleft_name: https&#58;//raw.githubusercontent.com/emadfrj/Telecom-Churn/main/poster/university-of-plymouth-vector-logo-3.png
+logoright_name: qr.png
+output: 
+  posterdown::posterdown_betterport:
+    self_contained: false
+    pandoc_args: --mathjax
+    number_sections: false
+nocite: | 
+  @*
+bibliography: references.bib
+link-citations: true
+knit: pagedown::chrome_print
+---
+
+```{=html}
+<style>
+#main-img-left {
+ width: 15%;
+}
+#main-img-center {
+ width: 5%;
+}
+#main-img-right {
+ width: 5%;
+}
+</style>
+```
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      tidy = FALSE,
+                      message = FALSE,
+                      fig.align = 'center',
+                      out.width = "100%")
+options(knitr.table.format = "html") 
+```
+
+```{r libraries, include=FALSE}
+library(knitr)
+library(kableExtra)
+library(janitor)
+library(dplyr)
+library(readr)  
+library(tidyr) 
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(doParallel)
+library(foreach)
+library(randomForest)
+library(ggplot2)
+library(leaflet)
+library(tree)
+```
+
+# Introduction
+
+::: {style="font-size: 30pt;"}
+The churn rate, a key business metric, indicates customer loyalty and engagement [@Investopedia2023]. It is calculated by dividing the number of churned customers by the total customers at the start of the period [@Luck2023]. High churn rates, particularly in telecommunications and subscription services, can significantly impact profitability and growth. Each industry has unique challenges and retention strategies, as shown in the industry-wide churn rates in figure 1.
+:::
+
+![Figure 1: Median Customer Churn Rate by Industry 2022 [@Tessitore2023]](https://optimise2.assets-servd.host/customer-gauge/production/general/churn-by-industry.webp?w=1336&auto=compress%2Cformat&fit=crop&dm=1668116309&s=e0a190198ead7969bb79600295f1d496){width="1100px"}
+
+::: {style="font-size: 30pt;"}
+Not managing churn can lead to a 25% loss of current customers, translating into an annual revenue loss of 75 billion [@Shabankareh2021]. Industries like insurance, telecommunications, and credit cards, facing intense competition, are particularly prone to churn, where even a 1% reduction in churn can increase profits by 6% [@Shabankareh2021].
+:::
+
+![Figure 2: Customer Churn Prediction Analysis [@Ly2022]](https://raw.githubusercontent.com/emadfrj/Telecom-Churn/main/poster/churn_type.png){width="1100"}
+
+\newpage
+
+```{r, include=FALSE}
+#knitr::write_bib(c('posterdown', 'rmarkdown','pagedown'), 'packages.bib')
+```
+
+# Previous Studies on Churn Prediction
+
+```{r table 0, echo=FALSE}
+
+
+# Define the data for the table
+table_data <- data.frame(
+  Author = c("Ullah et al.", "Beeharry & Fokone", "Bilisik & Sarp", "Ahmad et al"),
+  Dataset = c("South Asia GDM telecom (CDR) 64k instances, 29 attrs, 17 features", 
+              "IBM Sample & Duke University, 21 & 57 features", 
+              "IBM’s Open access, 21 features", 
+              "Syrian Telecom (SyriaTel), 2000 features"),
+#  Features = c("17", "21 & 57", "21", "2000"),
+  Methods = c("Random Forest", 
+              "Ensemble (KNN, RF, LR, NB)", 
+              "ANN, SVM, RF", 
+              "DT, RF, GBM, XGBoost"),
+#  Metrics = c("Accuracy, TP Rate, FP Rate, Precision, Recall", 
+#              "Accuracy, Precision, Recall, TP, TN, FP, FN", 
+#              "Accuracy, Precision, Sensitivity, F-Measure", 
+#              "AUC"),
+  `Accuracy Rate` = c("88.63%", 
+                      "82.30%, 63% F1 (imbal.), 76.20%, 77.06% F1 (bal.)", 
+                      "82% (ANN), 79% (SVM), 80% (RF)", 
+                      "93.3% (XGBoost, unbal.)")
+)
+
+# Create the table with kable, setting a smaller font size
+kable(table_data, caption = "Summary of Studies", booktabs = TRUE) %>%
+  kable_styling(font_size = 80)
+
+```
+
+# Our Dataset
+
+::: {style="font-size: 30pt;"}
+The dataset, sourced from Kaggle, comprises 7043 subscribers. Each row corresponds to a customer, and each column denotes their characteristics, as depicted in Figure 3.
+:::
+
+![Figure 3: Kaggle Dataset [@Bansal2023]](https://raw.githubusercontent.com/emadfrj/Telecom-Churn/main/poster/dataset.png){width="1100"}
+
+# Our Machine Learning Model
+
+![Figure 4: ML Model](https://raw.githubusercontent.com/emadfrj/Telecom-Churn/main/poster/ML_model_flow.jpg){width="1100"}
+
+::: {style="font-size: 30pt;"}
+[@Bilisik2023] utilized the same dataset for their investigation, where the class distribution wasn't uniform. They conducted model runs with three distinct training sets employing oversampling and undersampling techniques. The outcomes of this analysis are detailed in Table 2.
+:::
+
+```{r table 2, echo=FALSE}
+# Define the data for the new table
+sampling_data <- data.frame(
+  Metric = c("Accuracy Rate", "F measure", "Precision", "Sensitivity"),
+  `Original Dataset` = c(0.80, 0.80, 0.85, 0.88),
+  `Random Undersampling` = c(0.75, 0.75, 0.91, 0.71),
+  `Random Oversampling` = c(0.75, 0.76, 0.90, 0.75)
+)
+
+# Create the table with kable
+kable(sampling_data, caption = "Performance Metrics Across Different Sampling Techniques", booktabs = FALSE) %>%
+  kable_styling(font_size = 70)
+
+```
+
+# Our Findings
+
+::: {style="font-size: 30pt;"}
+The Feature Importance plot lists the top ten variables for our churn prediction model, highlighting referrals, dependents, tenure, contracts, and internet service as the most important.
+:::
+
+```{r trees setup, echo=FALSE}
+
+telco <- read_csv("Telco_customer_churn.csv")
+telco <- telco%>% clean_names()
+status <- read_csv("Telco_customer_churn_status.csv")
+status <- status%>% clean_names()
+services <- read_csv("Telco_customer_churn_services.csv")
+services <- services%>% clean_names()
+
+
+# Merge satisfaction_score column from status dataframe into telco dataframe
+telco <- merge(telco, status[, c("customer_id", "satisfaction_score")], by = "customer_id", all.x = TRUE)
+telco <- merge(telco, services[, c("customer_id",  "total_refunds", "total_extra_data_charges", 
+                                   "total_long_distance_charges", "referred_a_friend","number_of_referrals")], by = "customer_id", all.x = TRUE)
+
+
+# Remove the 'churn_reason' column from the dataframe
+telco <- telco %>% 
+  select(-churn_reason,-churn_score,-churn_label,-count, -customer_id,-city,-state,-country,-lat_long)
+
+
+# Convert categorical variables to factors
+telco <- telco %>%
+  mutate_if(is.character, as.factor)
+
+# Handle missing values 
+telco <- na.omit(telco)  # This removes rows with any NA values
+
+attach(telco)
+churn <- ifelse(churn_value == 1, "Yes", "NO")
+churn <- as.factor(churn)
+
+telco <- data.frame(telco,churn)
+
+```
+
+```{r trees vis, include=FALSE, echo=FALSE}
+
+numCores <- detectCores()
+cl <- makeCluster(numCores - 1)  # leave one core free for system operations
+registerDoParallel(cl)
+
+# Set seed for reproducibility
+set.seed(2)
+
+# Sampling setup
+n <- nrow(telco)
+train_indices <- sample(n, size = 0.8 * n)
+
+# Split data into training and test sets
+train.data <- telco[train_indices, ]
+test.data <- telco[-train_indices, ]
+churn.test <- churn[-train_indices] # Assuming 'churn' is in your data frame
+
+# Define the model formula
+tree_formula <- churn ~ senior_citizen + contract + dependents + tenure_months +
+  phone_service + multiple_lines + internet_service + online_security +
+  online_backup + device_protection + tech_support + streaming_tv +
+  streaming_movies + payment_method + total_charges + total_refunds +
+  total_extra_data_charges + total_long_distance_charges + number_of_referrals +
+  referred_a_friend + zip_code
+
+# Building the decision tree model with rpart
+tree_model <- tree(tree_formula, data = train.data)
+
+# Plotting the tree
+#rpart.plot(tree_model, main = "Decision Tree using rpart", box.palette = "Blues")
+
+# Model performance evaluation
+tree_pred1 <- predict(tree_model, test.data, type = "class")
+conf_matrix <- confusionMatrix(tree_pred1, churn.test) 
+ #print(conf_matrix$overall['Accuracy'])
+
+
+tab <- table(tree_pred1, churn.test)
+tab
+
+# LOOCV with parallel processing
+#cv_predictions <- foreach(i = 1:nrow(telco), .combine = c, .packages = 'rpart') %dopar% {
+  # Fit model excluding the i-th observation
+#  model <- rpart(tree_formula, data = telco[-i, ], method = "class")
+
+  # Predict for the i-th observation
+#  predict(model, newdata = telco[i, , drop = FALSE], type = "class")
+#}
+
+# Compare predictions with actual data to compute error rate
+#cv_results <- table(Predicted = cv_predictions, Actual = telco$churn)
+#cv_accuracy <- sum(diag(cv_results)) / nrow(telco)
+#print(cv_accuracy)
+
+stopCluster(cl)
+
+
+# Cross-validation for pruning
+set.seed(3)
+#printcp(tree_model)
+
+#opt_cp <- tree_model$cptable[which.min(tree_model$cptable[,"xerror"]), "CP"]
+
+
+
+cv.telco <- cv.tree(tree_model, FUN = prune.misclass)
+best.size <- cv.telco$size[which.min(cv.telco$dev)]
+best.size
+pruned_model <- prune.misclass(tree_model, best = best.size)
+
+
+#rpart.plot(pruned_model, main = "Pruned Decision Tree", box.palette = "Blues")
+
+
+# Predicting on the test data with the pruned tree model
+tree.pred2 <- predict(pruned_model, test.data, type = "class")
+
+# Creating a confusion table between predicted and actual test values
+tab2 <- table(Predicted = tree.pred2, Actual = churn.test)
+
+# Calculating the test error rate
+test_error_rate <- 1 - sum(diag(tab2)) / sum(tab2)
+#test_error_rate
+
+#misclassification error
+misclass_error <- (tab2[1,2] + tab2[2,1]) / sum(tab2)
+#misclass_error
+
+conf_matrix.table <- tab2
+accuracy.tree <- sum(diag(conf_matrix.table)) / sum(conf_matrix.table)
+#accuracy.tree
+precision.tree<- diag(conf_matrix.table) / rowSums(conf_matrix.table)
+recall.tree <- diag(conf_matrix.table) / colSums(conf_matrix.table)
+F1_score.tree <- 2 * (precision.tree * recall.tree) / (precision.tree + recall.tree)
+
+```
+
+
+```{r  rf and varimp, echo=FALSE, message=FALSE}
+
+# Set seed for reproducibility
+set.seed(4)
+
+# Build random forest model on training data
+rf.tree <- randomForest(tree_formula, data = train.data, mtry = 6, importance = TRUE)
+
+# Predict on test data using the random forest model
+rf.pred <- predict(rf.tree, test.data, type = "class")
+
+# Create confusion matrix
+conf_matrix <- confusionMatrix(rf.pred, churn.test)
+
+# Display confusion matrix and accuracy
+#print(conf_matrix)
+#print(conf_matrix$overall["Accuracy"])
+
+# Calculate test error rate
+test_error_rate <- 1 - sum(diag(table(rf.pred, churn.test))) / length(rf.pred)
+#print(test_error_rate)
+
+# Get variable importance data
+importance_data <- as.data.frame(importance(rf.tree, type = 1))  # type=1 for MeanDecreaseAccuracy
+names(importance_data) <- c("Importance")
+importance_data$Feature <- rownames(importance_data)
+
+# Select top 10 important features
+top_features <- importance_data[order(importance_data$Importance, decreasing = TRUE), ][1:10, ]
+
+# Create the variable importance plot with ggplot2 with a gradient color
+importance_plot<- ggplot(top_features, aes(x = reorder(Feature, Importance), y = Importance, fill = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  xlab("Feature") +
+  ylab("Importance") +
+  ggtitle("Top 10 Feature Importance") +
+  theme_minimal() +
+  scale_fill_gradient(low = "#077F7D", high = "blue")  # Define the gradient colors you want
+
+# Display the plot with a gradient color
+print(importance_plot)
+
+tab.rf <- table(Predicted = rf.pred, Actual = churn.test)
+
+
+```
+
+```{r f1, echo=FALSE, results='hide', message=FALSE, warning=FALSE, fig.show='hide'}
+
+precision.rf50 <- diag(tab.rf) / rowSums(tab.rf)
+recall.rf50 <- diag(tab.rf) / colSums(tab.rf)
+F1_score.rf50 <- 2 * (precision.rf50 * recall.rf50) / (precision.rf50 + recall.rf50)
+accuracy.rf50 <- sum(diag(tab.rf)) / sum(tab.rf)
+
+str(telco)
+#--------------------Optimize probability threshold cutoff-----------
+# Make predictions based on Probability
+rf.Probability <- predict(rf.tree, test.data, type = "prob")
+# Extract probabilities of the positive class(Churned)
+prob_positive_class <- rf.Probability[, "Yes"]
+
+
+Prob_Threshold <- seq(0.1, 0.9, by = 0.01) #Probability threshold
+missed_churns <- numeric(length = length(Prob_Threshold))
+predicted_churns <- numeric(length = length(Prob_Threshold))
+FalsePositive <- numeric(length = length(Prob_Threshold))
+TruePositive <- numeric(length = length(Prob_Threshold))
+
+precision.Prob <- numeric(length = length(Prob_Threshold))
+recall.Prob <- numeric(length = length(Prob_Threshold))
+F1_score.Prob <- numeric(length = length(Prob_Threshold))
+accuracy.Prob <- numeric(length = length(Prob_Threshold))
+index.predict <- 1
+for (i in Prob_Threshold) {
+  positive_class <- ifelse(prob_positive_class > i , "Yes", "NO") #threshold cutoffs
+  confusion_matrix <- table(positive_class, test.data$churn)
+  missed_churns[index.predict] <- (confusion_matrix[1,2]/sum(confusion_matrix))
+  predicted_churns[index.predict] <- ((confusion_matrix[2,1] + confusion_matrix[2,2])/sum(confusion_matrix))
+  FalsePositive[index.predict] <- confusion_matrix[2,1]/(confusion_matrix[2,1]+confusion_matrix[1,1])
+  TruePositive[index.predict] <- confusion_matrix[2,2]/(confusion_matrix[2,2]+confusion_matrix[1,2])
+  accuracy.Prob[index.predict] <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+  # F1-score
+  TP <- confusion_matrix[2, 2]
+  FP <- confusion_matrix[2, 1]
+  FN <- confusion_matrix[1, 2]
+  precision <- TP / (TP + FP)
+  recall <- TP / (TP + FN)
+  F1_score.Prob[index.predict] <- 2 * (precision * recall) / (precision + recall)
+  precision.Prob[index.predict] <- precision
+  recall.Prob[index.predict] <- recall
+  
+  index.predict <- index.predict + 1
+  #print(confusion_matrix[1,2]/sum(confusion_matrix))
+}
+#Optimize_threshold <- data.frame(Prob_Threshold,missed_churns,predicted_churns,FalsePositive,TruePositive,F1_score.Prob)
+Optimize_threshold <- data.frame(Prob_Threshold, missed_churns, predicted_churns, FalsePositive, TruePositive, precision.Prob, recall.Prob, F1_score.Prob, accuracy.Prob)
+
+
+
+# Plot F1-Score based on threshold cutoff
+# calculate max f1-score
+max_index <- which.max(F1_score.Prob)
+max_Prob_Threshold <- Prob_Threshold[max_index]
+max_precision <- precision.Prob[max_index]
+max_recall <- recall.Prob[max_index]
+max_f1_score <- F1_score.Prob[max_index]
+
+max_accuracy <- accuracy.Prob[max_index]
+
+
+plot(Prob_Threshold, F1_score.Prob, type = "l", xlab = "Probability threshold cutoffs",
+     ylab = "F1-score", main = "F1 score - Probability threshold cutoffs", col = "blue")
+abline(v = max_Prob_Threshold, col = "red")
+text(max_Prob_Threshold, max_f1_score, labels = paste("Max F1-score:",
+                                                      round(max_f1_score, 2), "\nThreshold cutoff:", round(max_Prob_Threshold, 2)), pos = 1)
+
+# Plot Missed-Predicted Churn 
+#par("mar")
+#plot(1:30)
+plot(predicted_churns,missed_churns, type = "l", xlab = "Predicted Churns Ratio",
+     ylab = "Missed Churns Ratio", main = "Missed-Predicted Churn",col = "blue")
+mtext("Numbers on plot are probability threshold cutoffs for predicting churn", side = 3, line = 0, cex = 1)
+labels <- Prob_Threshold[seq(1, length(Prob_Threshold), by = 10)]  # Select every 5th value
+text(predicted_churns[seq(1, length(Prob_Threshold), by = 10)], missed_churns[seq(1, length(Prob_Threshold), by = 10)], labels = labels, pos = 3)
+```
+
+```{r f1 2, echo=FALSE}
+#plot(predicted_churns,missed_churns, type = "l", xlab = "Predicted Churns Ratio",
+#     ylab = "Missed Churns Ratio", main = "Missed-Predicted Churn",col = "blue")
+#mtext("Numbers on plot are probability threshold cutoffs for predicting churn", side = 3, line = 0, cex = 1)
+#labels <- Prob_Threshold[seq(1, length(Prob_Threshold), by = 10)]  # Select every 5th value
+#text(predicted_churns[seq(1, length(Prob_Threshold), by = 10)], missed_churns[seq(1, length(Prob_Threshold), by = 10)], labels = labels, pos = 3)
+
+ggplot(Optimize_threshold, aes(x = predicted_churns, y = missed_churns)) +
+  geom_smooth(method = "loess", color = "blue", size = 1.5, se = FALSE) +  # Using LOESS for smooth curve and thicker line
+  geom_text(aes(label = ifelse(seq_along(predicted_churns) %% 10 == 1, sprintf("%.2f", Prob_Threshold), "")),
+            hjust = 1.5, vjust = 1.5) + 
+  labs(x = "Predicted Churns Ratio", y = "Missed Churns Ratio",
+       title = "Missed-Predicted Churn",
+       subtitle = "Numbers on plot are probability threshold cutoffs for predicting churn") +
+  theme_minimal()  
+
+```
+
+::: {style="font-size: 30pt;"}
+The plot above illustrates how adjusting the probability threshold for churn classification impacts the F1-score, missed churn ratio, and predicted churn ratio, aiding in the selection of an optimal threshold for balanced model performance.
+:::
+::: {style="font-size: 20pt;"}
+$\text{Cost} = \text{RetentionCost}(\text{PredictedChurn}) + \text{ChurnCost}(\text{MissedChurn})$
+:::
+
+
+
+
+```{r evaluation, echo=FALSE}
+#round(precision.tree[2],2)
+#round(recall.tree[2],2)
+#round(F1_score.tree[2],2)
+
+#round(precision.rf50[2],2)
+#round(recall.rf50[2],2)
+#round(F1_score.rf50[2],2)
+
+#round(max_precision,2) 
+#round(max_recall,2) 
+#round(max_f1_score,2) 
+
+evaluation.data <- data.frame(
+  Model = c("Decision Tree", "RF 50% threshold", "RF 33% threshold"),
+  Precision = c(round(precision.tree[2], 2), round(precision.rf50[2], 2), round(max_precision, 2)),
+  Recall = c(round(recall.tree[2], 2), round(recall.rf50[2], 2), round(max_recall, 2)),
+  F1_Score = c(round(F1_score.tree[2], 2), round(F1_score.rf50[2], 2), round(max_f1_score, 2)),
+  Accuracy = c(round(accuracy.tree, 2), round(accuracy.rf50, 2), round(max_accuracy, 2))
+)
+names(evaluation.data)[names(evaluation.data) == "F1_Score"] <- "F1 Score"
+
+kable(evaluation.data, booktabs = TRUE, caption = "Model Evaluation Metrics") %>%
+  kable_styling(font_size = 80)
+
+```
+
+# Geographical Churn Reasons
+
+![Figure 5: Map](https://raw.githubusercontent.com/emadfrj/Telecom-Churn/main/poster/Map%20with%20zoom.jpg){width="1000"}
+
+```{r map, include=FALSE}
+detach(telco)
+#### MAP ######--------------------
+
+telco1 <- read_csv("Telco_customer_churn.csv")
+
+
+telco1 <- telco1%>% clean_names()
+#names(telco1)
+
+
+
+# Read status.csv file
+status <- read_csv("Telco_customer_churn_status.csv")
+status <- status%>% clean_names()
+#names(status)
+
+telco1 <- merge(telco1, status[, c("customer_id", "churn_category")], by = "customer_id", all.x = TRUE)
+
+
+telco1 <- na.omit(telco1)
+#dim(telco1)
+
+attach(telco1)
+telco_subset <- data.frame(latitude,longitude,churn_value,churn_category)
+
+
+
+# Create a leaflet map
+map <- leaflet(telco_subset) %>%
+  addTiles() %>%
+  addCircleMarkers(
+    ~longitude, ~latitude,
+    color = ~case_when(
+      churn_category == "Competitor" ~ "red",
+      churn_category == "Dissatisfaction" ~ "blue",
+      churn_category == "Attitude" ~ "green",
+      churn_category == "Price" ~ "orange",
+      TRUE ~ "gray"  # Default color for other categories
+    ),
+    radius = 2,  
+    popup = ~paste("Churn:", churn_value)  # Show churn status in popup
+  )
+
+#map
+
+# Create a color palette for churn categories
+churn_colors <- c("Competitor" = "red",
+                  "Dissatisfaction" = "blue",
+                  "Attitude" = "green",
+                  "Price" = "orange",
+                  "Other" = "gray")
+
+# Create a legend control
+legend_values <- names(churn_colors)
+legend_colors <- unname(churn_colors)
+
+map <- addLegend(map = map,
+                 position = "bottomleft",
+                 colors = legend_colors,
+                 labels = legend_values,
+                 title = "Churn Category")
+map
+```
+
+::: {style="font-size: 30pt;"}
+The plot above shows that in Los Angeles, most customer churn is due to competitors and dissatisfaction.
+:::
+
+# Conclusion & Recommmendations
+
+::: {style="font-size: 27pt;"}
+Our study emphasizes the crucial role of machine learning, specifically decision tree and random forest models, in accurately predicting customer churn and optimizing customer retention. Key recommendations include:
+
+-   
+
+    > **Prioritizing relevant variables** in the construction of churn prediction models to enhance effectiveness.
+
+-   
+
+    > **Tuning probability thresholds** in models to tailor predictions to specific business needs, thereby improving their utility in reducing churn.
+
+These strategies are vital for addressing churn prediction challenges in the telecommunications industry.
+:::
+
+# References
